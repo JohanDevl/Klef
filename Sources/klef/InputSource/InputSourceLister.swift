@@ -11,8 +11,6 @@ struct InputSourceInfo: Hashable, CustomStringConvertible {
 
 /// Read-only Carbon TIS façade.
 ///
-/// V0.1: listing only. No `TISSelectInputSource` calls — switching is V0.2 (FR-3).
-///
 /// Memory rules:
 /// - `TISCreateInputSourceList` → Create rule → `.takeRetainedValue()`
 /// - `TISGetInputSourceProperty` → Get rule → `Unmanaged.fromOpaque(...).takeUnretainedValue()`
@@ -50,5 +48,34 @@ enum InputSourceLister {
                 isEnabled: true
             )
         }
+    }
+
+    /// Looks up a TISInputSource by ID using `includeAllInstalled: true` so that
+    /// disabled sources are included — required so the switcher can call
+    /// TISEnableInputSource before selecting.
+    ///
+    /// `TISCreateInputSourceList(nil, true)` can return multiple instances
+    /// sharing the same `kTISPropertyInputSourceID` (an enabled instance and a
+    /// bundled-but-disabled instance). Prefer the enabled one; fall back to
+    /// the first match so the switcher's `TISEnableInputSource` path still
+    /// works for sources the user has not yet enabled.
+    static func find(byID inputSourceID: String) -> TISInputSource? {
+        guard
+            let cfList = TISCreateInputSourceList(nil, true)?.takeRetainedValue(),
+            let sources = cfList as? [TISInputSource]
+        else { return nil }
+
+        let matches = sources.filter { source in
+            guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return false }
+            let id = Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
+            return id == inputSourceID
+        }
+
+        return matches.first(where: isEnabled) ?? matches.first
+    }
+
+    private static func isEnabled(_ source: TISInputSource) -> Bool {
+        guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled) else { return false }
+        return (Unmanaged<CFBoolean>.fromOpaque(raw).takeUnretainedValue() as NSNumber).boolValue
     }
 }

@@ -40,8 +40,12 @@ struct KeyboardDevice: Hashable, CustomStringConvertible {
 
     /// Builds a `KeyboardDevice` from a live `IOHIDDevice`.
     ///
-    /// Returns `nil` if either `vendorID` or `productID` is unavailable —
-    /// without those two we cannot form a stable `deviceID`.
+    /// Returns `nil` only if the device exposes no usable identity at all
+    /// (no vendor/product/location). Apple Silicon built-in keyboards travel
+    /// over SPI and do NOT expose `kIOHIDVendorIDKey`/`kIOHIDProductIDKey` —
+    /// they're only identifiable by `locationID` + product name. We default
+    /// missing vendor/product to 0 so those devices are still tracked; the
+    /// resulting `deviceID` (e.g. `v0-p0-loc282`) is stable on a given Mac.
     ///
     /// String properties from USB descriptors are attacker-controllable
     /// (CWE-117); they are sanitized at construction time so every consumer
@@ -55,15 +59,18 @@ struct KeyboardDevice: Hashable, CustomStringConvertible {
             (IOHIDDeviceGetProperty(device, key as CFString) as? String) ?? ""
         }
 
-        guard
-            let vendor = intProp(kIOHIDVendorIDKey),
-            let product = intProp(kIOHIDProductIDKey)
-        else { return nil }
+        let vendor = intProp(kIOHIDVendorIDKey) ?? 0
+        let product = intProp(kIOHIDProductIDKey) ?? 0
+        let location = intProp(kIOHIDLocationIDKey) ?? 0
+
+        // Reject only if every numeric identifier is missing — without any of
+        // them we cannot form a stable, distinguishable deviceID.
+        guard vendor != 0 || product != 0 || location != 0 else { return nil }
 
         return KeyboardDevice(
             vendorID: vendor,
             productID: product,
-            locationID: intProp(kIOHIDLocationIDKey) ?? 0,
+            locationID: location,
             transport: sanitize(strProp(kIOHIDTransportKey)),
             productName: sanitize(strProp(kIOHIDProductKey)),
             manufacturer: sanitize(strProp(kIOHIDManufacturerKey))

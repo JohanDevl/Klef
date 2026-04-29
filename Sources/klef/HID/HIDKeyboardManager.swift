@@ -123,7 +123,7 @@ final class HIDKeyboardManager {
 
     private func handleMatched(device: IOHIDDevice) {
         guard let kb = KeyboardDevice.from(device) else {
-            Log.warn("Matched device could not be parsed (missing vendor/product) — skipping")
+            Log.warn("Matched device could not be parsed (no vendor/product/location) — skipping")
             return
         }
         deviceCache[ObjectIdentifier(device)] = kb

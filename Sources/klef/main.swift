@@ -10,7 +10,7 @@ setlinebuf(stdout)
 // Banner (user-facing CLI presentation — not routed through Log)
 // ─────────────────────────────────────────────────────────────────────────────
 
-print("klef v0.1 — per-keyboard input source switcher (prototype)")
+print("klef v0.2 — per-keyboard input source switcher")
 print("Press Ctrl-C to quit.\n")
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +39,7 @@ if sources.isEmpty {
 // ─────────────────────────────────────────────────────────────────────────────
 // Static mapping: DeviceID → InputSourceID
 //
+// V0.2 performs the real switch via InputSourceSwitcher on each dominance change.
 // Run klef once to discover your keyboards' DeviceIDs from the "matched:" lines,
 // then fill in entries here. Example:
 //

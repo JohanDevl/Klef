@@ -6,7 +6,7 @@ Klef is a macOS menu bar app that automatically switches your keyboard layout ba
 
 ## Status
 
-**V0.1 prototype.** Today Klef is a CLI binary that detects keyboards and *logs* the layout it would switch to — it does not yet change the input source. The menu bar app described above is the V1 target. See [Building (V0.1 prototype)](#building-v01-prototype) below.
+**V0.2 engine.** Klef is still a CLI binary, but it now actually switches the macOS input source when you change keyboards (V0.1 only logged what it would have done). Mappings remain hardcoded in `main.swift` — the menu bar UI lands in V0.3.
 
 ## Why
 
@@ -31,7 +31,7 @@ macOS has no native per-device input source switching. The built-in "Automatical
 
 Swift 5.10+, SwiftUI for settings, AppKit `NSStatusItem` for the menu bar, `IOHIDManager` for keyboard detection, Carbon TIS for input source switching, `SMAppService` for launch at login.
 
-## Building (V0.1 prototype)
+## Building (V0.2)
 
 ### Requirements
 
@@ -70,11 +70,31 @@ let staticMapping = StaticMapping(entries: [
 Rebuild and relaunch. The enabled source IDs are printed at startup under
 "Enabled keyboard input sources".
 
-### V0.1 scope note
+### Running as a LaunchAgent (dogfooding)
 
-V0.1 is **read-only** with respect to the system input source. When you switch
-keyboards, `klef` logs `[device] -> would switch to [layout]` but does **not**
-actually change the input source. Real switching lands in V0.2.
+```bash
+swift build -c release
+./scripts/install-launch-agent.sh
+```
+
+View live logs: `tail -f ~/Library/Logs/klef-stdout.log`
+
+Stop / remove: `./scripts/uninstall-launch-agent.sh`
+
+> **Caveat:** After each `swift build`, the binary's code-sign hash changes. macOS may invalidate Input Monitoring permission and silently stop switching. If that happens, re-grant in System Settings → Privacy & Security → Input Monitoring.
+
+### Known limitations (V0.2)
+
+- **First-keystroke race remains.** A single character key-down as the very
+  first input on a freshly-promoted keyboard can still race the switch
+  (PRD §4 — measured improvement, not a fix).
+- **Secure Input.** When `IsSecureEventInputEnabled()` is true (e.g. password
+  fields, some Terminal contexts), the switch is attempted but may silently
+  fail. Logged as a warning.
+- **No GUI yet.** Mappings are still hardcoded in `main.swift`. V0.3 brings
+  the menu bar app.
+- **Two identical keyboards on the same Mac** are indistinguishable —
+  `locationID`-based identity. PRD §7.
 
 ## License
 
