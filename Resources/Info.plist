@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.klef.app</string>
+	<key>CFBundleName</key>
+	<string>Klef</string>
+	<key>CFBundleDisplayName</key>
+	<string>Klef</string>
+	<key>CFBundleExecutable</key>
+	<string>klef</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.3.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>MIT — © 2026 Klef contributors</string>
+	<key>NSInputMonitoringUsageDescription</key>
+	<string>Klef detects which keyboard you're typing on so it can switch the matching input source. It never reads keystroke content.</string>
+</dict>
+</plist>

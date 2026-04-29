@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOKit.hid
 
@@ -33,5 +34,14 @@ enum InputMonitoring {
             Log.warn("Input Monitoring permission status is unknown — macOS will prompt on first HID access.")
             Log.warn("If no prompt appears, enable klef under System Settings → Privacy & Security → Input Monitoring.")
         }
+    }
+
+    /// Opens System Settings → Privacy & Security → Input Monitoring directly.
+    ///
+    /// Used by `SettingsView` when permission is denied so the user can
+    /// recover without navigating the Settings tree manually.
+    static func openSystemSettingsDeeplink() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
+        NSWorkspace.shared.open(url)
     }
 }

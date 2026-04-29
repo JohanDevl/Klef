@@ -46,6 +46,7 @@ final class DominantDeviceTracker {
     /// digit / …) instead of the raw HID Usage ID — raw usage on the keyboard
     /// page is a scancode, and PRD §8 forbids logging keystroke content.
     func recordEvent(from device: KeyboardDevice, value: IOHIDValue) {
+        dispatchPrecondition(condition: .onQueue(.main))
         guard device != dominant else { return }
 
         let previous = dominant
@@ -90,6 +91,7 @@ final class DominantDeviceTracker {
     /// switch leaves the tracker untouched, so the next `recordEvent` from
     /// this keyboard takes the normal optimistic-with-rollback path.
     func keyboardConnected(_ device: KeyboardDevice) {
+        dispatchPrecondition(condition: .onQueue(.main))
         let name = Log.redactSerialLike(device.productName)
         let mfg = Log.redactSerialLike(device.manufacturer)
         Log.info("matched:      \(device.deviceID)  \"\(name)\" [\(mfg)] transport=\(device.transport)")
@@ -109,6 +111,7 @@ final class DominantDeviceTracker {
 
     /// Called when a keyboard disconnects (removal callback).
     func keyboardDisconnected(_ device: KeyboardDevice) {
+        dispatchPrecondition(condition: .onQueue(.main))
         let name = Log.redactSerialLike(device.productName)
         Log.info("disconnected: \(device.deviceID)  \"\(name)\"")
         if device == dominant {

@@ -6,7 +6,7 @@ Klef is a macOS menu bar app that automatically switches your keyboard layout ba
 
 ## Status
 
-**V0.2 engine.** Klef is still a CLI binary, but it now actually switches the macOS input source when you change keyboards (V0.1 only logged what it would have done). Mappings remain hardcoded in `main.swift` — the menu bar UI lands in V0.3.
+**V0.3 menu bar app.** Klef now runs as a native macOS menu bar app with a Settings window, per-keyboard input source mapping via dropdown, and UserDefaults persistence. No hardcoded mappings.
 
 ## Why
 
@@ -29,48 +29,54 @@ macOS has no native per-device input source switching. The built-in "Automatical
 
 ## Tech
 
-Swift 5.10+, SwiftUI for settings, AppKit `NSStatusItem` for the menu bar, `IOHIDManager` for keyboard detection, Carbon TIS for input source switching, `SMAppService` for launch at login.
+Swift 5.10+, SwiftUI for settings, AppKit `NSStatusItem` for the menu bar, `IOHIDManager` for keyboard detection, Carbon TIS for input source switching.
 
-## Building (V0.2)
+## Build & run (V0.3)
 
 ### Requirements
 
 - macOS 13 (Ventura) or later
 - Swift 5.10+ / Xcode 15+
 
-### Build & run
+### Build & launch
 
 ```bash
-swift build
-./.build/debug/klef
+swift build && ./scripts/bundle-app.sh && open Klef.app
+```
+
+For a release build:
+
+```bash
+swift build -c release && ./scripts/bundle-app.sh && open Klef.app
+```
+
+Use `--force` to overwrite an existing bundle:
+
+```bash
+./scripts/bundle-app.sh --force
 ```
 
 ### Input Monitoring permission
 
-On first launch macOS will either prompt for Input Monitoring access or `klef`
-will exit with guidance. If no prompt appears:
+On first launch macOS will prompt for Input Monitoring access. If no prompt appears:
 
 1. Open **System Settings → Privacy & Security → Input Monitoring**.
-2. Enable the terminal application you are running `klef` from.
-3. Re-launch `klef`.
+2. Add and enable `Klef`.
+3. Relaunch `Klef.app`.
+
+> **Note:** After each `swift build` + `bundle-app.sh`, the binary's code-sign hash changes. macOS may invalidate Input Monitoring permission and silently stop switching. If that happens, re-grant in System Settings → Privacy & Security → Input Monitoring.
 
 ### Mapping keyboards to input sources
 
-On startup `klef` prints a `matched:` line for each connected keyboard, including
-its stable `DeviceID` (e.g. `v1452-p641-loc337641472`). To configure switching,
-open `Sources/klef/main.swift` and fill in the `staticMapping` dictionary:
+1. Click the keyboard icon in the menu bar.
+2. Select **Open Klef Settings…**.
+3. For each detected keyboard, pick an input source from the dropdown.
 
-```swift
-let staticMapping = StaticMapping(entries: [
-    "v1452-p641-loc337641472":  "com.apple.keylayout.French",
-    "v1133-p49970-loc336592896": "com.apple.keylayout.ABC",
-])
-```
+Mappings are stored in `UserDefaults` under `klef.mappings.v1` and persist across relaunches. Keyboards you have seen before appear in a "Known, not connected" section even when unplugged.
 
-Rebuild and relaunch. The enabled source IDs are printed at startup under
-"Enabled keyboard input sources".
+### Running as a LaunchAgent (legacy V0.2 dogfood path)
 
-### Running as a LaunchAgent (dogfooding)
+The LaunchAgent scripts remain for reference but the preferred path is now the `.app` bundle above.
 
 ```bash
 swift build -c release
@@ -81,9 +87,7 @@ View live logs: `tail -f ~/Library/Logs/klef-stdout.log`
 
 Stop / remove: `./scripts/uninstall-launch-agent.sh`
 
-> **Caveat:** After each `swift build`, the binary's code-sign hash changes. macOS may invalidate Input Monitoring permission and silently stop switching. If that happens, re-grant in System Settings → Privacy & Security → Input Monitoring.
-
-### Known limitations (V0.2)
+### Known limitations (V0.3)
 
 - **First-keystroke race remains.** A single character key-down as the very
   first input on a freshly-promoted keyboard can still race the switch
@@ -91,10 +95,12 @@ Stop / remove: `./scripts/uninstall-launch-agent.sh`
 - **Secure Input.** When `IsSecureEventInputEnabled()` is true (e.g. password
   fields, some Terminal contexts), the switch is attempted but may silently
   fail. Logged as a warning.
-- **No GUI yet.** Mappings are still hardcoded in `main.swift`. V0.3 brings
-  the menu bar app.
 - **Two identical keyboards on the same Mac** are indistinguishable —
   `locationID`-based identity. PRD §7.
+- **Builds are ad-hoc-signed only.** Developer ID signing and notarization are
+  V1.0.
+- **No first-launch onboarding.** The Settings window opens the Input Monitoring
+  pane directly when permission is denied, but there is no welcome flow. V1.0.
 
 ## License
 
