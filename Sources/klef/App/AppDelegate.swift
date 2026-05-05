@@ -107,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // UI
         settingsWindowController = SettingsWindowController(appState: appState)
         statusItemController = StatusItemController(
+            appState: appState,
             onOpenSettings: { [weak self] in
                 self?.settingsWindowController.show()
             },
