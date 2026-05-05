@@ -50,6 +50,18 @@ enum InputSourceLister {
         }
     }
 
+    /// Returns the ID of the input source currently active system-wide, or
+    /// `nil` if the Carbon call fails. Used by the engine to detect when an
+    /// external actor has reverted a switch we issued — observed in practice
+    /// on Sequoia/Tahoe where the keystroke that triggered our switch causes
+    /// the kernel to reapply a per-device default *after* `TISSelectInputSource`
+    /// returns `noErr`.
+    static func currentInputSourceID() -> String? {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return nil }
+        guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return nil }
+        return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
+    }
+
     /// Looks up a TISInputSource by ID using `includeAllInstalled: true` so that
     /// disabled sources are included — required so the switcher can call
     /// TISEnableInputSource before selecting.

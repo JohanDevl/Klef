@@ -35,21 +35,55 @@ final class DominantDeviceTracker {
 
     /// Called on every HID input value.
     ///
-    /// Short-circuits if the device is already dominant. On dominance change
-    /// to a mapped device, optimistically promotes the device, asks the
-    /// switcher to switch, and rolls back the promotion if the switch fails
+    /// Two short-circuit paths:
+    /// 1. Unmapped device, already dominant → no-op.
+    /// 2. Mapped device, dominant, AND the system's current input source is
+    ///    already the mapped layout → no-op.
+    ///
+    /// Otherwise: for mapped devices, optimistically promote the device, ask
+    /// the switcher to switch, and roll back the promotion if the switch fails
     /// (and only if dominance hasn't moved on again in the meantime). For
-    /// unmapped devices, promotes dominance silently (no switch, no spam) and
-    /// emits one info log per transition.
+    /// unmapped devices, promote dominance silently (no switch, no spam) and
+    /// emit one info log per transition.
+    ///
+    /// **Why we re-check the current source on every event:** observed in
+    /// practice that `TISSelectInputSource` returns `noErr` but the system
+    /// reverts to a per-device default before the next keystroke is processed.
+    /// Without a per-event re-assert, the user's first event triggers a switch,
+    /// the system reverts, and the dominant guard then suppresses every
+    /// subsequent event from the same keyboard — every following keystroke
+    /// types under the wrong layout. The TIS query is cheap and pays for
+    /// itself the moment any external actor reapplies a layout.
     ///
     /// The `class=` field reports a coarse usage bucket (modifier / letter /
     /// digit / …) instead of the raw HID Usage ID — raw usage on the keyboard
     /// page is a scancode, and PRD §8 forbids logging keystroke content.
     func recordEvent(from device: KeyboardDevice, value: IOHIDValue) {
         dispatchPrecondition(condition: .onQueue(.main))
-        guard device != dominant else { return }
 
+        let isDominanceChange = (device != dominant)
         let previous = dominant
+
+        guard let layoutID = mapping.inputSource(for: device.deviceID) else {
+            if isDominanceChange {
+                dominant = device
+                Log.info("unmapped device \(device.deviceID) — skip switch")
+            }
+            return
+        }
+
+        // Only mapped events count as "user is typing" for the connect heuristic.
+        lastEventAt = Date()
+
+        let currentID = InputSourceLister.currentInputSourceID()
+
+        // Skip the switch only when nothing needs doing: same dominant AND the
+        // system already has the mapped layout active. Either condition failing
+        // → re-assert.
+        if !isDominanceChange && currentID == layoutID {
+            return
+        }
+
         dominant = device
 
         let element = IOHIDValueGetElement(value)
@@ -59,16 +93,14 @@ final class DominantDeviceTracker {
         let usageClass = HIDUsageClass.classify(page: page, usage: usage)
 
         let from = previous.map { " (from \($0.deviceID))" } ?? " (first event)"
-
-        guard let layoutID = mapping.inputSource(for: device.deviceID) else {
-            Log.info("unmapped device \(device.deviceID) — skip switch")
-            return
+        let drift: String
+        if !isDominanceChange, let currentID, currentID != layoutID {
+            drift = " [drift: was \(currentID)]"
+        } else {
+            drift = ""
         }
 
-        // Only mapped events count as "user is typing" for the connect heuristic.
-        lastEventAt = Date()
-
-        Log.event("\(device.deviceID)\(from) -> switching to \(layoutID) [page=\(page) class=\(usageClass.rawValue) value=\(intValue)]")
+        Log.event("\(device.deviceID)\(from) -> switching to \(layoutID)\(drift) [page=\(page) class=\(usageClass.rawValue) value=\(intValue)]")
 
         InputSourceSwitcher.switchTo(layoutID) { [weak self] success in
             guard let self else { return }
