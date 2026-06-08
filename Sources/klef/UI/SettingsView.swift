@@ -25,6 +25,12 @@ struct SettingsView: View {
                 }
             }
 
+            // MARK: - General
+
+            Section("General") {
+                LaunchAtLoginToggleView()
+            }
+
             // MARK: - Connected keyboards
 
             Section("Connected") {
