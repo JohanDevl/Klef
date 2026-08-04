@@ -29,6 +29,7 @@ struct SettingsView: View {
 
             Section("General") {
                 LaunchAtLoginToggleView()
+                UpdateCheckView()
             }
 
             // MARK: - Connected keyboards

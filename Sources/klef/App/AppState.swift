@@ -36,6 +36,19 @@ final class AppState: ObservableObject {
     /// the UI can surface a Retry button to call back into `AppDelegate`.
     @Published private(set) var hidIsRunning: Bool = false
 
+    /// A published release newer than the running build, or `nil` when up to
+    /// date or not yet checked.
+    @Published private(set) var availableUpdate: AvailableUpdate?
+
+    /// True while a check is in flight, so the UI can disable the command
+    /// rather than let the user queue several requests at a rate-limited API.
+    @Published private(set) var isCheckingForUpdate: Bool = false
+
+    /// Outcome of the most recent *explicit* check, for display in Settings.
+    /// Automatic launch checks leave this alone: a failed background check is
+    /// not something to interrupt anyone about.
+    @Published private(set) var updateCheckMessage: String?
+
     // MARK: - Wiring (set by AppDelegate after init)
 
     /// Closure the UI calls to ask the app to (re-)start HID monitoring after
@@ -132,6 +145,59 @@ final class AppState: ObservableObject {
     func setHIDIsRunning(_ running: Bool) {
         dispatchPrecondition(condition: .onQueue(.main))
         hidIsRunning = running
+    }
+
+    // MARK: - Update checks
+
+    /// Asks GitHub whether a newer release exists.
+    ///
+    /// - Parameter explicit: `true` when the user asked (menu / Settings
+    ///   button), which surfaces the outcome — including "you're up to date"
+    ///   and failures — via `updateCheckMessage`. `false` is the silent launch
+    ///   check, which only ever populates `availableUpdate`.
+    func checkForUpdates(explicit: Bool) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard !isCheckingForUpdate else { return }
+
+        if explicit {
+            isCheckingForUpdate = true
+            updateCheckMessage = nil
+        }
+
+        let handler: (Result<AvailableUpdate?, Error>) -> Void = { [weak self] result in
+            guard let self else { return }
+            self.isCheckingForUpdate = false
+            switch result {
+            case .success(let update):
+                self.availableUpdate = update
+                if explicit {
+                    self.updateCheckMessage = update.map { "Klef \($0.version) is available." }
+                        ?? "Klef is up to date."
+                }
+            case .failure(let error):
+                Log.warn("update check failed: \(error.localizedDescription)")
+                if explicit {
+                    self.updateCheckMessage = error.localizedDescription
+                }
+            }
+        }
+
+        if explicit {
+            UpdateChecker.check(completion: handler)
+        } else {
+            UpdateChecker.checkIfDue(completion: handler)
+        }
+    }
+
+    /// Turns the automatic daily check on or off. Clears any pending banner on
+    /// the way out so disabling the feature also removes its UI.
+    func setUpdateChecksEnabled(_ enabled: Bool) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        UpdateChecker.isEnabled = enabled
+        if !enabled {
+            availableUpdate = nil
+            updateCheckMessage = nil
+        }
     }
 
     // MARK: - Computed helpers

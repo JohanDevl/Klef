@@ -57,8 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = MappingsStore()
         appState = AppState(store: store)
 
-        // Log version + permission guidance (reuses V0.2 logic)
-        Log.info("Klef v0.3")
+        // Log version + permission guidance (reuses V0.2 logic). The version is
+        // read from the bundle rather than hardcoded — bundle-app.sh stamps it
+        // from version.txt, so a literal here would drift every release.
+        Log.info("Klef \(AppVersion.current?.description ?? "(unbundled build)")")
         InputMonitoring.printGuidance(for: appState.permissionStatus)
 
         // Engine
@@ -115,6 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         )
+
+        // Silent, rate-limit-friendly: no-ops unless the user left checks
+        // enabled and a day has passed. Result lands in the status menu.
+        appState.checkForUpdates(explicit: false)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -139,5 +145,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Log.error("HID manager failed to start — check Input Monitoring permission.")
         }
         appState.refreshPermission()
+        // Nil on the launch path — the controller reads the settled state in
+        // its own initialiser. Matters on the re-arm path, after the user
+        // grants permission from the Settings window.
+        statusItemController?.refreshIcon()
     }
 }
