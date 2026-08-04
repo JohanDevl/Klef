@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     branches: [main]
+  # Lets release-please be re-run against main without an empty commit —
+  # needed whenever a push lands while Actions is disabled or a run is
+  # cancelled, which would otherwise leave main with no release PR and no way
+  # to ask for one.
+  workflow_dispatch:
 
 permissions:
   contents: write
