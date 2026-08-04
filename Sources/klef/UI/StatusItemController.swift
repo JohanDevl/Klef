@@ -45,22 +45,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// V0.3 only calls `.normal`. The `.warning` variant is wired now so V1.0
     /// FR-6 can surface the permission-denied state without touching this class.
     func setIcon(_ variant: IconVariant) {
-        let symbolName: String
+        let image: NSImage?
         let toolTip: String
 
         switch variant {
         case .normal:
-            symbolName = "keyboard"
+            // Brand glyph, with the SF Symbol as a fallback so a parse failure
+            // can't leave the status item blank and unclickable.
+            image = MenuBarIcon.makeTemplate() ?? symbolImage("keyboard")
             toolTip = "Klef"
         case .warning:
+            // Stays an SF Symbol: the brand glyph has no badged variant, and the
+            // system symbol carries the alert semantics for free.
             // SF Symbols 4 (macOS 13+). No earlier fallback needed since
             // LSMinimumSystemVersion is 13.0.
-            symbolName = "keyboard.badge.exclamationmark"
+            image = symbolImage("keyboard.badge.exclamationmark")
             toolTip = "Klef — Input Monitoring required"
         }
 
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Klef")
-        image?.isTemplate = true
         statusItem.button?.image = image
         statusItem.button?.toolTip = toolTip
     }
@@ -72,6 +74,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     // MARK: - Private helpers
+
+    private func symbolImage(_ name: String) -> NSImage? {
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: "Klef")
+        image?.isTemplate = true
+        return image
+    }
 
     private func configure() {
         let menu = NSMenu()

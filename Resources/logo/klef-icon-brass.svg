@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#33363D"/>
+      <stop offset="1" stop-color="#15171B"/>
+    </linearGradient>
+    <linearGradient id="capTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FAD879"/>
+      <stop offset="1" stop-color="#D49A33"/>
+    </linearGradient>
+    <linearGradient id="capSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C0892C"/>
+      <stop offset="1" stop-color="#8C611B"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.5"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="keyhole">
+      <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+      <circle cx="512" cy="452" r="60" fill="black"/>
+      <path d="M474 468 H550 L534 612 H490 Z" fill="black"/>
+    </mask>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+
+  <g mask="url(#keyhole)">
+    <rect x="312" y="318" width="400" height="402" rx="74" fill="url(#capSide)"/>
+    <rect x="312" y="300" width="400" height="400" rx="74" fill="url(#capTop)"/>
+    <rect x="312" y="300" width="400" height="200" rx="74" fill="url(#sheen)"/>
+  </g>
+</svg>

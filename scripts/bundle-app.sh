@@ -55,6 +55,13 @@ if [ ! -f "$INFO_PLIST" ]; then
     exit 1
 fi
 
+# Committed artefact — regenerate with scripts/make-icon.sh when the artwork changes.
+ICON="$REPO_ROOT/Resources/Klef.icns"
+if [ ! -f "$ICON" ]; then
+    echo "Resources/Klef.icns not found — run scripts/make-icon.sh." >&2
+    exit 1
+fi
+
 BUNDLE="$OUTPUT_DIR/Klef.app"
 
 if [ -e "$BUNDLE" ]; then
@@ -68,10 +75,13 @@ fi
 
 # Build bundle structure
 mkdir -p "$BUNDLE/Contents/MacOS"
+mkdir -p "$BUNDLE/Contents/Resources"
 
 cp "$BINARY"     "$BUNDLE/Contents/MacOS/klef"
 chmod +x         "$BUNDLE/Contents/MacOS/klef"
 cp "$INFO_PLIST" "$BUNDLE/Contents/Info.plist"
+# Must land before codesign below, or the signature won't seal Contents/Resources.
+cp "$ICON"       "$BUNDLE/Contents/Resources/Klef.icns"
 
 # PkgInfo: exactly 8 bytes, no newline
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"

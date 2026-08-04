@@ -56,6 +56,14 @@ Use `--force` to overwrite an existing bundle:
 ./scripts/bundle-app.sh --force
 ```
 
+### App icon
+
+`Resources/Klef.icns` is committed and copied into the bundle by `bundle-app.sh`. It is rasterised from `Resources/logo/klef-icon-brass.svg` — only re-run this after changing the artwork:
+
+```bash
+./scripts/make-icon.sh
+```
+
 ### Input Monitoring permission
 
 On first launch macOS will prompt for Input Monitoring access. If no prompt appears:

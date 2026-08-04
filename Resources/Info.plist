@@ -10,6 +10,8 @@
 	<string>Klef</string>
 	<key>CFBundleExecutable</key>
 	<string>klef</string>
+	<key>CFBundleIconFile</key>
+	<string>Klef</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

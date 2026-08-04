@@ -1,0 +1,14 @@
+<svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+  <!-- Monochrome template glyph for the menu bar.
+       Single even-odd path: outer keycap ring + keyhole re-filled in the centre.
+       Rendered black; the app sets isTemplate = true so macOS recolours it
+       (black in the light menu bar, white in the dark one). Reads at 18 pt. -->
+  <path fill="#000" fill-rule="evenodd" d="
+    M13,4 H23 A6.5,6.5 0 0 1 29.5,10.5 V25.5 A6.5,6.5 0 0 1 23,32 H13
+      A6.5,6.5 0 0 1 6.5,25.5 V10.5 A6.5,6.5 0 0 1 13,4 Z
+    M13.6,6.6 H22.4 A4.5,4.5 0 0 1 26.9,11.1 V24.9 A4.5,4.5 0 0 1 22.4,29.4 H13.6
+      A4.5,4.5 0 0 1 9.1,24.9 V11.1 A4.5,4.5 0 0 1 13.6,6.6 Z
+    M14.6,14.5 a3.4,3.4 0 1 0 6.8,0 a3.4,3.4 0 1 0 -6.8,0 Z
+    M15.3,15.5 H20.7 L19.6,25 H16.4 Z
+  "/>
+</svg>
