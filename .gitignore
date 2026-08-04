@@ -5,3 +5,8 @@ Package.resolved
 .DS_Store
 xcuserdata/
 Klef.app/
+dist/
+*.dmg
+
+# Local agent scratch (plans, PRDs) — kept out of the published repo.
+.claude/

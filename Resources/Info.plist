@@ -14,10 +14,14 @@
 	<string>Klef</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- Both version keys are placeholders. bundle-app.sh substitutes them in
+	     the copy it puts inside Klef.app: the marketing version comes from
+	     version.txt (maintained by release-please), the build number from the
+	     commit count. Editing them here has no effect. -->
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.0</string>
+	<string>__MARKETING_VERSION__</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>__BUILD_NUMBER__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>LSMinimumSystemVersion</key>
@@ -27,7 +31,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>MIT — © 2026 Klef contributors</string>
+	<string>MIT — © 2026 Johan Devlaminck</string>
 	<key>NSInputMonitoringUsageDescription</key>
 	<string>Klef detects which keyboard you're typing on so it can switch the matching input source. It never reads keystroke content.</string>
 </dict>

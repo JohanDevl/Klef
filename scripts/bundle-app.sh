@@ -55,6 +55,20 @@ if [ ! -f "$INFO_PLIST" ]; then
     exit 1
 fi
 
+# Marketing version: version.txt is the single source of truth, maintained by
+# release-please. Resources/Info.plist only carries a placeholder.
+VERSION_FILE="$REPO_ROOT/version.txt"
+if [ ! -f "$VERSION_FILE" ]; then
+    echo "version.txt not found — it is the source of truth for CFBundleShortVersionString." >&2
+    exit 1
+fi
+MARKETING_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
+
+# Build number: commit count is monotonic and identical for a given commit
+# whether built locally or in CI. Falls back to 0 outside a git checkout
+# (e.g. a source tarball), which is fine — only the App Store cares.
+BUILD_NUMBER="$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null || echo 0)"
+
 # Committed artefact — regenerate with scripts/make-icon.sh when the artwork changes.
 ICON="$REPO_ROOT/Resources/Klef.icns"
 if [ ! -f "$ICON" ]; then
@@ -83,14 +97,38 @@ cp "$INFO_PLIST" "$BUNDLE/Contents/Info.plist"
 # Must land before codesign below, or the signature won't seal Contents/Resources.
 cp "$ICON"       "$BUNDLE/Contents/Resources/Klef.icns"
 
+# Stamp the real versions into the bundled copy. PlistBuddy rather than sed so a
+# malformed substitution fails loudly instead of producing an unparseable plist.
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" \
+                        -c "Set :CFBundleVersion $BUILD_NUMBER" \
+                        "$BUNDLE/Contents/Info.plist"
+
 # PkgInfo: exactly 8 bytes, no newline
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
-# Ad-hoc code signature so macOS will run it without Developer ID.
-# --deep signs nested code objects (frameworks, helpers) — none in V0.3
-# but makes the call forward-compatible.
-codesign --force --deep --sign - "$BUNDLE"
+# Code signature.
+#
+# Default is ad-hoc (`-`): macOS will run the app locally, but a *downloaded*
+# build carries the quarantine bit and Gatekeeper blocks it until the user
+# approves it by hand (see README → Installing).
+#
+# Set MACOS_SIGN_IDENTITY to a Developer ID Application identity to produce a
+# distributable build instead. That also enables the hardened runtime, which
+# notarization requires. scripts/make-dmg.sh handles notarize + staple.
+#
+# --deep signs nested code objects (frameworks, helpers) — none today, but it
+# keeps the call forward-compatible.
+if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+    echo "Signing with Developer ID: $MACOS_SIGN_IDENTITY"
+    codesign --force --deep --timestamp --options runtime \
+             --sign "$MACOS_SIGN_IDENTITY" "$BUNDLE"
+else
+    codesign --force --deep --sign - "$BUNDLE"
+fi
 
-echo "Bundle: $BUNDLE"
-echo "Binary: $BINARY"
+codesign --verify --strict --verbose=2 "$BUNDLE"
+
+echo "Bundle:  $BUNDLE"
+echo "Binary:  $BINARY"
+echo "Version: $MARKETING_VERSION ($BUILD_NUMBER)"
 echo "To launch: open \"$BUNDLE\""

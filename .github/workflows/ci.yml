@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & bundle
+    # Pinned rather than macos-latest: the deployment target is macOS 13, and a
+    # runner image bump should be a deliberate commit, not a silent CI change.
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # bundle-app.sh derives CFBundleVersion from `git rev-list --count`,
+          # which needs real history rather than a depth-1 clone.
+          fetch-depth: 0
+
+      - name: Select Xcode
+        # SwiftUI's macro plugins live in Xcode, not the Command Line Tools.
+        # Without this the build fails with a misleading "external macro
+        # implementation could not be found" error.
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          swift --version
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Bundle Klef.app
+        run: ./scripts/bundle-app.sh --force
+
+      - name: Verify bundle
+        run: |
+          codesign --verify --strict --verbose=2 Klef.app
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Klef.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Klef.app/Contents/Info.plist
+          # A leftover placeholder means the version stamping silently failed.
+          if grep -q '__MARKETING_VERSION__\|__BUILD_NUMBER__' Klef.app/Contents/Info.plist; then
+            echo "Info.plist placeholders were not substituted" >&2
+            exit 1
+          fi
+
+      - name: Build DMG
+        run: ./scripts/make-dmg.sh
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Klef-dmg-${{ github.sha }}
+          path: dist/*.dmg
+          retention-days: 14
