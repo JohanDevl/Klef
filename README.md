@@ -86,18 +86,28 @@ the source.
 - **Klef never seizes the input stream.** `IOHIDManager` is opened with
   `kIOHIDOptionsTypeNone` (shared monitoring), not exclusive capture — see
   [`HIDKeyboardManager`](Sources/klef/HID/HIDKeyboardManager.swift).
-- **Exactly one outbound request, and you can switch it off.** No telemetry, no
-  analytics, no crash reporting. The only network call Klef ever makes is an
-  unauthenticated `GET` to
+- **One outbound request on its own, and you can switch it off.** No telemetry,
+  no analytics, no crash reporting. The only network call Klef makes without
+  being asked is an unauthenticated `GET` to
   `api.github.com/repos/JohanDevl/Klef/releases/latest`, at most once a day, to
   see whether a newer release exists — see
   [`UpdateChecker`](Sources/klef/Updates/UpdateChecker.swift). It sends no
   request body and no identifiers beyond the IP address and `User-Agent` that
   any HTTP client sends. Turn it off in Settings and Klef makes no network
-  requests at all.
-- **Nothing is downloaded or installed automatically.** The update check only
-  ever shows a menu item linking to the release page. Klef never writes outside
-  its own preferences.
+  requests unless you click a button that asks for one.
+- **Nothing is downloaded or installed unless you click Install Update.** The
+  update check only reports that a release exists. If you then choose to
+  install it, Klef downloads that release's disk image from
+  `github.com/JohanDevl/Klef/releases`, checks it against the size and SHA-256
+  GitHub publishes for it, and replaces its own app bundle; the previous
+  version goes to the Trash — see
+  [`UpdateInstaller`](Sources/klef/Updates/UpdateInstaller.swift). That
+  checksum proves the download is the published file, not that the release is
+  genuine: it is the same trust as downloading the DMG yourself. Because Klef
+  fetches the image itself, macOS does not quarantine it, so an in-app update
+  skips the Gatekeeper prompt a browser download would get. Apart from an
+  install — a temporary download, the bundle swap, the old version in the
+  Trash — Klef never writes outside its own preferences.
 - **No third-party dependencies.** Everything Klef links ships with macOS.
   `IOKit` and `Carbon` are named explicitly in
   [`Package.swift`](Package.swift); the rest (SwiftUI, AppKit,
@@ -144,17 +154,24 @@ Mappings persist across relaunches. Keyboards you have seen before appear in a
 ### Updates
 
 Klef checks GitHub once a day for a newer release and, if it finds one, shows it
-in the menu with a link to the download page. It never downloads or installs
-anything by itself — use **Check for Updates…** in the menu to look right away,
-or turn the daily check off entirely in Settings.
+in the menu and in Settings. It never downloads or installs anything by itself.
+Click **Install Update** in Settings and Klef downloads the release, verifies
+it, replaces itself and reopens; **Release Notes** opens the release page if you
+would rather install by hand. Use **Check for Updates…** in the menu to look
+right away, or turn the daily check off entirely in Settings.
+
+In-app install needs Klef to live somewhere it can write to — the Applications
+folder, in practice. Klef refuses to update a copy still running from its
+download location and tells you to move it first.
 
 > **Re-grant Input Monitoring after every update.** macOS ties the permission to
 > the app binary's code signature hash, and because Klef's builds are ad-hoc
 > signed rather than Developer ID signed, that hash changes with every release.
 > After installing a new version, Klef will appear to run normally but switch
 > nothing until you re-enable it under System Settings → Privacy & Security →
-> Input Monitoring. The menu bar icon shows a warning badge whenever this has
-> happened. Developer ID signing fixes it permanently and is planned for V1.0.
+> Input Monitoring. After an in-app update Klef opens that pane for you; the
+> menu bar icon also shows a warning badge whenever this has happened.
+> Developer ID signing fixes it permanently and is planned for V1.0.
 
 ## Building from source
 
@@ -224,8 +241,8 @@ raw binary as a background daemon, but the `.app` bundle is the supported route.
 - **Builds are ad-hoc signed only.** Developer ID signing and notarization are
   planned for V1.0; the release pipeline is already wired for them. Until then,
   every update revokes the Input Monitoring grant (see [Updates](#updates)),
-  which is also why Klef only *notifies* about new versions instead of
-  installing them — a silent in-app update would leave a dead app behind.
+  which is also why Klef only installs an update when you ask it to — a silent
+  background update would leave a dead app behind.
 - **No first-launch onboarding.** The Settings window opens the Input Monitoring
   pane directly when permission is denied, but there is no welcome flow. V1.0.
 

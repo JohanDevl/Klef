@@ -4,9 +4,9 @@ import SwiftUI
 /// Credits, license, and project links, as rows of the Settings form.
 ///
 /// Everything here is static or read from the bundle. The links hand off to
-/// the default browser; Klef itself fetches nothing. The README promises the
-/// update check is the app's only network request, and an avatar or badge
-/// loaded here would quietly break that.
+/// the default browser; Klef itself fetches nothing. The README promises that
+/// the update check is the only request Klef makes without being asked, and an
+/// avatar or badge loaded here would quietly break that.
 struct AboutView: View {
 
     @State private var isShowingLicense = false

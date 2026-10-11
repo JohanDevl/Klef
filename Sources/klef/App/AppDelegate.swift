@@ -118,9 +118,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
 
+        // Hidden bundles an interrupted install may have left beside the app.
+        UpdateInstaller.sweepLeftovers()
+
+        // An in-app update just relaunched us. The new binary has a new
+        // CDHash, so macOS has dropped the Input Monitoring grant: take the
+        // user straight to the fix rather than leave them with a warning icon
+        // to decode. `hidIsRunning` is checked as well because a stale TCC
+        // entry can still read as granted while the HID manager fails to open.
+        if let installed = UpdateInstaller.consumeInstalledVersion(),
+           installed == AppVersion.current,
+           appState.permissionStatus != .granted || !appState.hidIsRunning {
+            settingsWindowController.show()
+            InputMonitoring.openSystemSettingsDeeplink()
+        }
+
         // Silent, rate-limit-friendly: no-ops unless the user left checks
         // enabled and a day has passed. Result lands in the status menu.
         appState.checkForUpdates(explicit: false)
+    }
+
+    /// Holds off Quit — and logout — for the second or two in which an update
+    /// is being staged and swapped in. Dying there would leave a half-copied
+    /// bundle, or a mounted disk image, behind.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        appState.isReplacingApp ? .terminateCancel : .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

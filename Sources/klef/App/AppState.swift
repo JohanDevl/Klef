@@ -16,6 +16,24 @@ import Foundation
 /// each mutator carries the same load-bearing assertion at runtime.
 final class AppState: ObservableObject {
 
+    enum UpdateInstallState: Equatable {
+        case idle
+        case working(UpdateInstaller.Phase)
+        case failed(String)
+        /// The new version is on disk but could not be started; this process
+        /// is still the old one.
+        case restartRequired(AppVersion)
+
+        /// A second install on top of one that is running, or one that is
+        /// already on disk waiting for a restart, has nothing left to do.
+        var allowsNewInstall: Bool {
+            switch self {
+            case .idle, .failed: return true
+            case .working, .restartRequired: return false
+            }
+        }
+    }
+
     // MARK: - Published state
 
     /// Device IDs currently physically connected.
@@ -48,6 +66,11 @@ final class AppState: ObservableObject {
     /// Automatic launch checks leave this alone: a failed background check is
     /// not something to interrupt anyone about.
     @Published private(set) var updateCheckMessage: String?
+
+    /// Where an in-app update install stands. `.failed` stays put until the
+    /// next attempt so Settings can keep showing what went wrong.
+    /// `AppDelegate` also reads it to hold off Quit during the swap.
+    @Published private(set) var updateInstallState: UpdateInstallState = .idle
 
     // MARK: - Wiring (set by AppDelegate after init)
 
@@ -157,7 +180,10 @@ final class AppState: ObservableObject {
     ///   check, which only ever populates `availableUpdate`.
     func checkForUpdates(explicit: Bool) {
         dispatchPrecondition(condition: .onQueue(.main))
-        guard !isCheckingForUpdate else { return }
+        // An install owns `availableUpdate` while it runs; a check landing in
+        // the middle would pull the banner, and its progress row, out from
+        // under it.
+        guard !isCheckingForUpdate, !isInstallingUpdate else { return }
 
         if explicit {
             isCheckingForUpdate = true
@@ -189,10 +215,98 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Update install
+
+    var isInstallingUpdate: Bool {
+        if case .working = updateInstallState { return true }
+        return false
+    }
+
+    /// True once the download is in hand and files beside the app are being
+    /// worked on. Quitting then could strand a half-staged bundle, so
+    /// `AppDelegate` refuses to terminate until it is over. The download
+    /// itself is excluded: abandoning it harms nothing, and it can take a
+    /// while on a bad connection.
+    var isReplacingApp: Bool {
+        switch updateInstallState {
+        case .working(.verifying), .working(.installing): return true
+        default: return false
+        }
+    }
+
+    /// Downloads and installs the update the user just confirmed, then
+    /// relaunches into it.
+    ///
+    /// Only ever called from an explicit click. On success this does not
+    /// return to its caller in any useful sense: Klef quits and reopens.
+    func installUpdate() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard let confirmed = availableUpdate, updateInstallState.allowsNewInstall else { return }
+
+        updateInstallState = .working(.downloading)
+
+        // Klef only checks at launch and can then sit in the menu bar for
+        // weeks, so what `availableUpdate` describes may be stale: the image
+        // re-uploaded (new checksum) or a newer release out. Ask again, and
+        // only go ahead with exactly the version the user said yes to.
+        UpdateChecker.check { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .failure(let error):
+                self.failInstall(error.localizedDescription)
+
+            case .success(nil):
+                // The release was withdrawn since the banner appeared.
+                self.availableUpdate = nil
+                self.updateInstallState = .idle
+                self.updateCheckMessage = "Klef is up to date."
+
+            case .success(let fresh?):
+                self.availableUpdate = fresh
+                guard fresh.version == confirmed.version else {
+                    self.failInstall(
+                        "Klef \(fresh.version) has been published since. Review it, then click Install Update again."
+                    )
+                    return
+                }
+                self.download(fresh)
+            }
+        }
+    }
+
+    private func download(_ update: AvailableUpdate) {
+        UpdateInstaller.install(
+            update,
+            onPhase: { [weak self] phase in
+                self?.updateInstallState = .working(phase)
+            },
+            completion: { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    // Leaves `.working` first, or `AppDelegate` would refuse
+                    // the very termination the relaunch ends with.
+                    self.updateInstallState = .idle
+                    UpdateInstaller.relaunch(afterInstalling: update.version) { [weak self] _ in
+                        self?.updateInstallState = .restartRequired(update.version)
+                    }
+                case .failure(let error):
+                    self.failInstall(error.localizedDescription)
+                }
+            }
+        )
+    }
+
+    private func failInstall(_ reason: String) {
+        Log.warn("update install failed: \(reason)")
+        updateInstallState = .failed(reason)
+    }
+
     /// Turns the automatic daily check on or off. Clears any pending banner on
     /// the way out so disabling the feature also removes its UI.
     func setUpdateChecksEnabled(_ enabled: Bool) {
         dispatchPrecondition(condition: .onQueue(.main))
+        guard !isInstallingUpdate else { return }
         UpdateChecker.isEnabled = enabled
         if !enabled {
             availableUpdate = nil
