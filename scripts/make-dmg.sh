@@ -101,6 +101,9 @@ else
 fi
 
 # Checksum so users can verify the download against the release notes.
-shasum -a 256 "$DMG" | tee "$DMG.sha256"
+# Computed from inside the output directory so the file records the bare
+# filename: an absolute build path would make `shasum -c` fail for everyone
+# who downloads it.
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG")" | tee "$(basename "$DMG").sha256")
 
 echo "DMG: $DMG"
