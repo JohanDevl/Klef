@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/JohanDevl/Klef/compare/v0.3.0...v0.4.0) (2026-10-11)
+
+
+### Features
+
+* **updates:** install a release in place from Settings ([f0784b6](https://github.com/JohanDevl/Klef/commit/f0784b67f0e3b5f4e063d0d4b8ce7ac863c0fa43))
+
+
+### Bug Fixes
+
+* write a relative filename into the DMG checksum file ([bf93763](https://github.com/JohanDevl/Klef/commit/bf9376343038ef9370b7a88798f34985759dce23))
+
+
+### Documentation
+
+* update the release guide after the first release ([b3159f9](https://github.com/JohanDevl/Klef/commit/b3159f985de0f3a4007550b6ce9f4e2f403e92c7))
+
 ## [0.3.0](https://github.com/JohanDevl/Klef/compare/v0.2.0...v0.3.0) (2026-10-11)
 
 
