@@ -56,12 +56,18 @@ struct SettingsView: View {
                 }
             }
 
-            // MARK: - Footer
+            // MARK: - Switching note
 
             Section {
                 Text("Switching takes effect on the next event from the keyboard.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
+            }
+
+            // MARK: - About
+
+            Section("About") {
+                AboutView()
             }
         }
         .formStyle(.grouped)
