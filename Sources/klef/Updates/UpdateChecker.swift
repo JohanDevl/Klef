@@ -5,24 +5,33 @@ struct AvailableUpdate: Equatable {
     let version: AppVersion
     let releaseURL: URL
 
-    static func == (lhs: AvailableUpdate, rhs: AvailableUpdate) -> Bool {
-        lhs.version == rhs.version && lhs.releaseURL == rhs.releaseURL
-    }
+    /// The release's disk image, when Klef can install it in place. `nil`
+    /// leaves the release page as the only route — see `InstallerAsset`.
+    let installer: InstallerAsset?
+}
+
+/// A release's disk image, and what the download has to match before
+/// `UpdateInstaller` will touch it.
+struct InstallerAsset: Equatable {
+    let downloadURL: URL
+    let size: Int
+    /// Lowercase hex. GitHub computes it when the asset is uploaded.
+    let sha256: String
 }
 
 /// Asks the GitHub Releases API whether a newer version has been published.
 ///
-/// Deliberately *only* a notifier. It does not download, install, or relaunch
-/// anything, for a reason specific to Klef: builds are ad-hoc signed, so the
-/// binary's CDHash changes on every release, and macOS keys the Input
-/// Monitoring grant to that hash. Any update — automatic or manual — revokes
-/// the permission Klef needs to do its one job. An in-app updater would land
-/// that silently in the background and leave the user with an app that looks
-/// fine and does nothing. Sending them to the release page keeps the reinstall,
-/// and the re-grant that must follow it, deliberate and visible.
+/// Deliberately *only* a notifier: it reports what exists and never acts on
+/// it. Installing is a separate step — `UpdateInstaller`, run when the user
+/// clicks Install Update — for a reason specific to Klef: builds are ad-hoc
+/// signed, so the binary's CDHash changes on every release, and macOS keys the
+/// Input Monitoring grant to that hash. Any update revokes the permission Klef
+/// needs to do its one job. One landed silently in the background would leave
+/// the user with an app that looks fine and does nothing; one they asked for
+/// can walk them straight to the re-grant that must follow it.
 ///
 /// Revisit once releases are Developer ID signed: a stable signing identity
-/// means TCC survives updates, and Sparkle becomes the right answer.
+/// means TCC survives updates, and background updates become reasonable.
 enum UpdateChecker {
 
     // MARK: - Configuration
@@ -39,6 +48,12 @@ enum UpdateChecker {
     /// The unauthenticated GitHub API is rate-limited per IP; anything tighter
     /// would be rude for no benefit.
     private static let checkInterval: TimeInterval = 24 * 60 * 60
+
+    /// Sent with every request Klef makes; GitHub rejects API calls without
+    /// one. Carries the version and nothing else.
+    static var userAgent: String {
+        "Klef/\(AppVersion.current?.description ?? "dev")"
+    }
 
     private static let enabledKey = "klef.updateCheck.enabled"
     private static let lastCheckKey = "klef.updateCheck.lastCheckAt"
@@ -108,8 +123,7 @@ enum UpdateChecker {
 
         var request = URLRequest(url: endpoint)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        // GitHub rejects API requests without a User-Agent.
-        request.setValue("Klef/\(current)", forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
         // The whole point is freshness; a cached 200 would hide a new release.
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -160,24 +174,61 @@ enum UpdateChecker {
             }
 
             Log.info("update check: \(latest) available (running \(current))")
-            deliver(.success(AvailableUpdate(version: latest, releaseURL: url)), to: completion)
+            let update = AvailableUpdate(
+                version: latest,
+                releaseURL: url,
+                installer: installerAsset(in: payload.assets)
+            )
+            deliver(.success(update), to: completion)
         }
         task.resume()
     }
 
-    // MARK: - Private helpers
+    // MARK: - Session
 
     /// Ephemeral rather than `URLSession.shared`: no cookie store, no credential
-    /// store, no on-disk cache. The README promises this request carries nothing
-    /// beyond the IP and User-Agent, and this is what makes that literally true
-    /// rather than merely true in practice.
-    private static let session: URLSession = {
+    /// store, no on-disk cache. The README promises Klef's requests carry
+    /// nothing beyond the IP and User-Agent, and this is what makes that
+    /// literally true rather than merely true in practice. Shared with
+    /// `UpdateInstaller` so the download keeps the same promise.
+    static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil
         configuration.httpShouldSetCookies = false
         return URLSession(configuration: configuration)
     }()
+
+    // MARK: - Private helpers
+
+    /// The disk image Klef is willing to install, or `nil`.
+    ///
+    /// Strict on purpose, because whatever this returns gets downloaded and
+    /// swapped in for the running app: exactly one `.dmg`, served from this
+    /// repository's own release downloads over HTTPS, with a SHA-256 digest to
+    /// hold the download to. Anything less falls back to the release page.
+    private static func installerAsset(in assets: [LatestRelease.Asset]) -> InstallerAsset? {
+        let images = assets.filter { $0.name?.hasSuffix(".dmg") == true }
+        let digestPrefix = "sha256:"
+        guard
+            images.count == 1,
+            let image = images.first,
+            let size = image.size,
+            let digest = image.digest,
+            digest.hasPrefix(digestPrefix),
+            let url = image.browserDownloadURL.flatMap(URL.init(string:)),
+            url.scheme == "https",
+            url.host == "github.com",
+            url.path.hasPrefix("/\(repository)/releases/download/")
+        else {
+            return nil
+        }
+
+        let hex = digest.dropFirst(digestPrefix.count).lowercased()
+        guard hex.count == 64, hex.allSatisfy(\.isHexDigit) else { return nil }
+
+        return InstallerAsset(downloadURL: url, size: size, sha256: hex)
+    }
 
     private static func deliver(
         _ result: Result<AvailableUpdate?, Error>,
@@ -186,14 +237,50 @@ enum UpdateChecker {
         DispatchQueue.main.async { completion(result) }
     }
 
-    /// Only the two fields Klef uses; every other key in the payload is ignored.
+    /// Only the fields Klef uses; every other key in the payload is ignored.
     private struct LatestRelease: Decodable {
         let tagName: String
         let htmlURL: String
+        let assets: [Asset]
 
         enum CodingKeys: String, CodingKey {
             case tagName = "tag_name"
             case htmlURL = "html_url"
+            case assets
+        }
+
+        /// The assets only matter to the in-app install. However odd they
+        /// look, they must never cost the user the notification itself, so
+        /// they decode leniently and `installerAsset` does the judging.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            tagName = try container.decode(String.self, forKey: .tagName)
+            htmlURL = try container.decode(String.self, forKey: .htmlURL)
+            assets = (try? container.decode([Asset].self, forKey: .assets)) ?? []
+        }
+
+        struct Asset: Decodable {
+            let name: String?
+            let size: Int?
+            let browserDownloadURL: String?
+            /// `sha256:<hex>`. Absent on assets uploaded before GitHub started
+            /// computing digests.
+            let digest: String?
+
+            enum CodingKeys: String, CodingKey {
+                case name
+                case size
+                case browserDownloadURL = "browser_download_url"
+                case digest
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                name = try? container.decode(String.self, forKey: .name)
+                size = try? container.decode(Int.self, forKey: .size)
+                browserDownloadURL = try? container.decode(String.self, forKey: .browserDownloadURL)
+                digest = try? container.decode(String.self, forKey: .digest)
+            }
         }
     }
 }

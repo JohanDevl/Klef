@@ -159,7 +159,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             keyEquivalent: ""
         )
         updateItem.target = self
-        updateItem.isEnabled = !appState.isCheckingForUpdate
+        updateItem.isEnabled = !appState.isCheckingForUpdate && !appState.isInstallingUpdate
         menu.addItem(updateItem)
 
         let quitItem = NSMenuItem(
@@ -168,6 +168,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             keyEquivalent: "q"
         )
         quitItem.target = self
+        // `AppDelegate` refuses to terminate while an update is being swapped
+        // in; a Quit that silently did nothing would read as a hang.
+        quitItem.isEnabled = !appState.isReplacingApp
         menu.addItem(quitItem)
     }
 
@@ -210,11 +213,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             accessibilityDescription: nil
         )
 
-        let action = NSMenuItem(
-            title: "Open Download Page\u{2026}",
-            action: #selector(openReleasePage),
-            keyEquivalent: ""
-        )
+        // Installing is driven from Settings, where the confirmation and the
+        // progress are visible; a menu closes the moment it is clicked. The
+        // release page stays the route for releases Klef can't install itself.
+        let action = update.installer == nil
+            ? NSMenuItem(
+                title: "Open Download Page\u{2026}",
+                action: #selector(openReleasePage),
+                keyEquivalent: ""
+            )
+            : NSMenuItem(
+                title: "Install Update\u{2026}",
+                action: #selector(openSettings),
+                keyEquivalent: ""
+            )
         action.target = self
 
         // Stated here, not only in the release notes: after installing, the
