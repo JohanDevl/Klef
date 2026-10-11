@@ -45,7 +45,10 @@ force a major bump. While Klef is pre-1.0 it bumps the minor instead
 
 Releases are fully automated — there is nothing to tag or bump by hand.
 
-1. Merge `develop` → `main`.
+1. Merge `develop` → `main` with a merge commit. Give that PR a plain title
+   such as `Merge develop into main`, not a Conventional Commit one: GitHub
+   copies the PR title into the merge commit body, release-please parses it,
+   and a `feat:` title shows up in the changelog a second time.
 2. The `Release` workflow opens (or updates) a PR titled
    `chore(main): release X.Y.Z` containing the version bump and the generated
    changelog. Review it.
@@ -65,10 +68,9 @@ Releases are fully automated — there is nothing to tag or bump by hand.
 version keys in `Resources/Info.plist`. `version.txt` is the source of truth;
 the plist keys are placeholders substituted at bundle time.
 
-> The baseline is seeded at `0.2.0` deliberately. The repository has no release
-> tags yet, so release-please will sweep the full history into the first
-> changelog and the `feat:` commits already on `main` bump it to **v0.3.0** —
-> the first automated release, matching the V0.3 status in the README.
+> **v0.3.0** was the first automated release. The baseline was seeded at `0.2.0`
+> with no earlier tags, which is why its changelog sweeps the full history and
+> its compare link points at a `v0.2.0` tag that does not exist.
 
 ### Code signing
 
