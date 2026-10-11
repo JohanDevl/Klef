@@ -9,7 +9,6 @@
 * brand icon for the app bundle and the menu bar ([c091fe4](https://github.com/JohanDevl/Klef/commit/c091fe479a48ca426126daa2771bc443ed037a23))
 * inline keyboard controls in status menu ([a188766](https://github.com/JohanDevl/Klef/commit/a188766a671370d8cdbb46ccb3d838cc14a447bc))
 * notify when a newer release is published on GitHub ([9e2821d](https://github.com/JohanDevl/Klef/commit/9e2821d090e3aaed58dcc8e073f933305bb73b60))
-* **settings:** add About section with credits, license and project links ([b456053](https://github.com/JohanDevl/Klef/commit/b4560534688d46c133e5d300bd47c1a557d139f6))
 * **settings:** add About section with credits, license and project links ([ec3c262](https://github.com/JohanDevl/Klef/commit/ec3c26214607c96a06c68cb2176ac24f4bdab711))
 * **settings:** add launch at login toggle ([c945112](https://github.com/JohanDevl/Klef/commit/c945112c629d42bc43e29338d00013dd10472455))
 * V0.2 engine — real TIS switching, switch-on-connect, LaunchAgent ([cbcaa4d](https://github.com/JohanDevl/Klef/commit/cbcaa4d67660124f4da7f9c240227ffbfdd68f6c))
