@@ -98,17 +98,19 @@ the source.
 - **Nothing is downloaded or installed automatically.** The update check only
   ever shows a menu item linking to the release page. Klef never writes outside
   its own preferences.
-- **No third-party dependencies.** Beyond the system Swift/AppKit stack the only
-  frameworks linked are `IOKit` and `Carbon` — see
-  [`Package.swift`](Package.swift). `otool -L Klef.app/Contents/MacOS/klef`
-  shows the full list.
+- **No third-party dependencies.** Everything Klef links ships with macOS.
+  `IOKit` and `Carbon` are named explicitly in
+  [`Package.swift`](Package.swift); the rest (SwiftUI, AppKit,
+  `ServiceManagement` for launch at login, …) comes from plain imports of
+  Apple system frameworks. `otool -L Klef.app/Contents/MacOS/klef` shows the
+  full list.
 - **Everything stays local.** Your keyboard-to-layout mappings live in
   `UserDefaults` under `klef.mappings.v1`. Nothing leaves your Mac.
 - **Logs are redacted.** Device names are passed through
   [`Log.redactSerialLike`](Sources/klef/Diagnostics/Logger.swift), which strips
   trailing serial-looking tokens before anything is written.
 
-Klef is MIT-licensed and the whole thing is ~2000 lines of Swift with no
+Klef is MIT-licensed and the whole thing is a few thousand lines of Swift with no
 third-party dependencies. If you'd rather not trust a downloaded binary,
 [build it yourself](#building-from-source).
 

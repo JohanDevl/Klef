@@ -51,7 +51,7 @@ fi
 
 INFO_PLIST="$REPO_ROOT/Resources/Info.plist"
 if [ ! -f "$INFO_PLIST" ]; then
-    echo "Resources/Info.plist not found — run task #12 first or check repo state." >&2
+    echo "Resources/Info.plist not found — check repo state." >&2
     exit 1
 fi
 
@@ -76,6 +76,14 @@ if [ ! -f "$ICON" ]; then
     exit 1
 fi
 
+# Shipped inside the bundle: MIT asks for the notice to accompany every copy,
+# and Settings → About reads it from there.
+LICENSE_FILE="$REPO_ROOT/LICENSE"
+if [ ! -f "$LICENSE_FILE" ]; then
+    echo "LICENSE not found — it is bundled into Klef.app and must exist." >&2
+    exit 1
+fi
+
 BUNDLE="$OUTPUT_DIR/Klef.app"
 
 if [ -e "$BUNDLE" ]; then
@@ -96,6 +104,7 @@ chmod +x         "$BUNDLE/Contents/MacOS/klef"
 cp "$INFO_PLIST" "$BUNDLE/Contents/Info.plist"
 # Must land before codesign below, or the signature won't seal Contents/Resources.
 cp "$ICON"       "$BUNDLE/Contents/Resources/Klef.icns"
+cp "$LICENSE_FILE" "$BUNDLE/Contents/Resources/LICENSE"
 
 # Stamp the real versions into the bundled copy. PlistBuddy rather than sed so a
 # malformed substitution fails loudly instead of producing an unparseable plist.
